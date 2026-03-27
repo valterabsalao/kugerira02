@@ -1,0 +1,309 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId}
+    // Fields:
+    //   - nome: string (required)
+    //   - email: string (required, email format)
+    //   - metaMensal: number (optional)
+    //   - createdAt: string (optional, date-time)
+    //
+    // Collection: clientes
+    // Document ID: auto-generated
+    // Fields:
+    //   - nome: string (required)
+    //   - telefone: string (required)
+    //   - servico: string (optional)
+    //   - valorTotal: number (optional)
+    //   - valorPago: number (optional)
+    //   - data: string (optional, date)
+    //   - vip: boolean (optional)
+    //   - uid: string (required, owner ID)
+    //
+    // Collection: encomendas
+    // Document ID: auto-generated
+    // Fields:
+    //   - clienteId: string (required)
+    //   - clienteNome: string (required)
+    //   - servico: string (required)
+    //   - valorTotal: number (optional)
+    //   - valorPago: number (optional)
+    //   - data: string (optional, date)
+    //   - status: string (required, enum)
+    //   - uid: string (required, owner ID)
+    //
+    // Collection: lembretes
+    // Document ID: auto-generated
+    // Fields:
+    //   - texto: string (required)
+    //   - data: string (required, date)
+    //   - done: boolean (optional)
+    //   - uid: string (required, owner ID)
+    //
+    // Collection: financas
+    // Document ID: auto-generated
+    // Fields:
+    //   - descricao: string (required)
+    //   - valor: number (required)
+    //   - tipo: string (required, enum)
+    //   - data: string (required, date)
+    //   - uid: string (required, owner ID)
+    //
+    // Collection: disparos
+    // Document ID: auto-generated
+    // Fields:
+    //   - clienteId: string (required)
+    //   - clienteNome: string (required)
+    //   - mensagem: string (required)
+    //   - data: string (required, date)
+    //   - tipo: string (required, enum)
+    //   - uid: string (required, owner ID)
+    //
+    // Collection: pipeline
+    // Document ID: auto-generated
+    // Fields:
+    //   - titulo: string (required)
+    //   - clienteId: string (optional)
+    //   - clienteNome: string (optional)
+    //   - valor: number (optional)
+    //   - nota: string (optional)
+    //   - stage: string (required, enum)
+    //   - uid: string (required, owner ID)
+    //   - createdAt: timestamp (optional)
+    //   - updatedAt: timestamp (optional)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.uid;
+    }
+
+    function isRequestOwner() {
+      return isAuthenticated() && request.auth.uid == request.resource.data.uid;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "valterabsalao@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidDate(dateStr) {
+      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}$");
+    }
+
+    function isValidDateTime(dateTimeStr) {
+      return dateTimeStr is string && dateTimeStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return hasRequiredFields(['nome', 'email']) &&
+             data.nome is string && data.nome.size() > 0 && data.nome.size() < 100 &&
+             isValidEmail(data.email) &&
+             (!('metaMensal' in data) || data.metaMensal is number) &&
+             (!('createdAt' in data) || data.createdAt is string || data.createdAt is timestamp) &&
+             (!('updatedAt' in data) || data.updatedAt is string || data.updatedAt is timestamp);
+    }
+
+    function isValidCliente(data) {
+      return hasRequiredFields(['nome', 'telefone', 'uid']) &&
+             data.nome is string && data.nome.size() > 0 && data.nome.size() < 100 &&
+             data.telefone is string && data.telefone.size() >= 8 &&
+             (!('servico' in data) || data.servico is string) &&
+             (!('valorTotal' in data) || data.valorTotal is number) &&
+             (!('valorPago' in data) || data.valorPago is number) &&
+             (!('data' in data) || isValidDate(data.data)) &&
+             (!('vip' in data) || data.vip is bool) &&
+             data.uid == request.auth.uid;
+    }
+
+    function isValidEncomenda(data) {
+      return hasRequiredFields(['clienteId', 'clienteNome', 'servico', 'status', 'uid']) &&
+             data.clienteId is string &&
+             data.clienteNome is string &&
+             data.servico is string &&
+             data.status in ['Em andamento', 'Entregue', 'Cancelado'] &&
+             (!('valorTotal' in data) || data.valorTotal is number) &&
+             (!('valorPago' in data) || data.valorPago is number) &&
+             (!('data' in data) || isValidDate(data.data)) &&
+             data.uid == request.auth.uid;
+    }
+
+    function isValidLembrete(data) {
+      return hasRequiredFields(['texto', 'data', 'uid']) &&
+             data.texto is string && data.texto.size() > 0 &&
+             isValidDate(data.data) &&
+             (!('done' in data) || data.done is bool) &&
+             data.uid == request.auth.uid;
+    }
+
+    function isValidFinanca(data) {
+      return hasRequiredFields(['descricao', 'valor', 'tipo', 'data', 'uid']) &&
+             data.descricao is string &&
+             data.valor is number &&
+             data.tipo in ['Receita', 'Despesa'] &&
+             isValidDate(data.data) &&
+             data.uid == request.auth.uid;
+    }
+
+    function isValidDisparo(data) {
+      return hasRequiredFields(['clienteId', 'clienteNome', 'mensagem', 'data', 'uid']) &&
+             data.clienteId is string &&
+             data.clienteNome is string &&
+             data.mensagem is string &&
+             isValidDate(data.data) &&
+             (!('tipo' in data) || data.tipo in ['Texto', 'Voz']) &&
+             data.uid == request.auth.uid;
+    }
+
+    function isValidNota(data) {
+      return hasRequiredFields(['texto', 'ts']) &&
+             data.texto is string && data.texto.size() > 0 &&
+             isValidDateTime(data.ts);
+    }
+
+    function isValidPagamento(data) {
+      return hasRequiredFields(['valor', 'data']) &&
+             data.valor is number &&
+             isValidDate(data.data);
+    }
+
+    function isParentOwner(clienteId) {
+      return isAuthenticated() && get(/databases/$(database)/documents/clientes/$(clienteId)).data.uid == request.auth.uid;
+    }
+
+    function isValidActividade(data) {
+      return hasRequiredFields(['texto', 'ts', 'uid']) &&
+             data.texto is string &&
+             isValidDateTime(data.ts) &&
+             (!('createdAt' in data) || data.createdAt is timestamp) &&
+             data.uid == request.auth.uid;
+    }
+
+    function isValidPipeline(data) {
+      return hasRequiredFields(['titulo', 'stage', 'uid']) &&
+             data.titulo is string && data.titulo.size() > 0 &&
+             data.stage in ['prospecto', 'contactado', 'negociacao', 'fechado'] &&
+             (!('clienteId' in data) || data.clienteId is string) &&
+             (!('clienteNome' in data) || data.clienteNome is string) &&
+             (!('valor' in data) || data.valor is number) &&
+             (!('nota' in data) || data.nota is string) &&
+             (!('createdAt' in data) || data.createdAt is timestamp) &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp) &&
+             data.uid == request.auth.uid;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /clientes/{clienteId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isRequestOwner() && isValidCliente(request.resource.data);
+      allow update: if isDocOwner() && isValidCliente(request.resource.data);
+      allow delete: if isDocOwner() || isAdmin();
+
+      match /notas/{notaId} {
+        allow read: if isParentOwner(clienteId) || isAdmin();
+        allow create: if isParentOwner(clienteId) && isValidNota(request.resource.data);
+        allow update: if isParentOwner(clienteId) && isValidNota(request.resource.data);
+        allow delete: if isParentOwner(clienteId) || isAdmin();
+      }
+
+      match /pagamentos/{pgtoId} {
+        allow read: if isParentOwner(clienteId) || isAdmin();
+        allow create: if isParentOwner(clienteId) && isValidPagamento(request.resource.data);
+        allow update: if isParentOwner(clienteId) && isValidPagamento(request.resource.data);
+        allow delete: if isParentOwner(clienteId) || isAdmin();
+      }
+    }
+
+    match /encomendas/{encomendaId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isRequestOwner() && isValidEncomenda(request.resource.data);
+      allow update: if isDocOwner() && isValidEncomenda(request.resource.data);
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /lembretes/{lembreteId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isRequestOwner() && isValidLembrete(request.resource.data);
+      allow update: if isDocOwner() && isValidLembrete(request.resource.data);
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /financas/{financaId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isRequestOwner() && isValidFinanca(request.resource.data);
+      allow update: if isDocOwner() && isValidFinanca(request.resource.data);
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /disparos/{disparoId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isRequestOwner() && isValidDisparo(request.resource.data);
+      allow update: if isDocOwner() && isValidDisparo(request.resource.data);
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /actividade/{actividadeId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isRequestOwner() && isValidActividade(request.resource.data);
+      allow update: if isDocOwner() && isValidActividade(request.resource.data);
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /pipeline/{pipelineId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isRequestOwner() && isValidPipeline(request.resource.data);
+      allow update: if isDocOwner() && isValidPipeline(request.resource.data);
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

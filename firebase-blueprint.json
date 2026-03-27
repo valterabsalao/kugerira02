@@ -1,0 +1,181 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account information and settings",
+      "type": "object",
+      "properties": {
+        "nome": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "metaMensal": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nome", "email"]
+    },
+    "Cliente": {
+      "title": "Cliente",
+      "description": "Customer information and sales data",
+      "type": "object",
+      "properties": {
+        "nome": { "type": "string" },
+        "telefone": { "type": "string" },
+        "servico": { "type": "string" },
+        "valorTotal": { "type": "number" },
+        "valorPago": { "type": "number" },
+        "data": { "type": "string", "format": "date" },
+        "vip": { "type": "boolean" },
+        "uid": { "type": "string" }
+      },
+      "required": ["nome", "telefone", "uid"]
+    },
+    "Encomenda": {
+      "title": "Encomenda",
+      "description": "Order tracking",
+      "type": "object",
+      "properties": {
+        "clienteId": { "type": "string" },
+        "clienteNome": { "type": "string" },
+        "servico": { "type": "string" },
+        "valorTotal": { "type": "number" },
+        "valorPago": { "type": "number" },
+        "data": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["Em andamento", "Entregue", "Cancelado"] },
+        "uid": { "type": "string" }
+      },
+      "required": ["clienteId", "servico", "status", "uid"]
+    },
+    "Lembrete": {
+      "title": "Lembrete",
+      "description": "Reminders and tasks",
+      "type": "object",
+      "properties": {
+        "texto": { "type": "string" },
+        "data": { "type": "string", "format": "date" },
+        "done": { "type": "boolean" },
+        "uid": { "type": "string" }
+      },
+      "required": ["texto", "data", "uid"]
+    },
+    "Financa": {
+      "title": "Finança",
+      "description": "Financial transactions",
+      "type": "object",
+      "properties": {
+        "descricao": { "type": "string" },
+        "valor": { "type": "number" },
+        "tipo": { "type": "string", "enum": ["Receita", "Despesa"] },
+        "data": { "type": "string", "format": "date" },
+        "uid": { "type": "string" }
+      },
+      "required": ["descricao", "valor", "tipo", "data", "uid"]
+    },
+    "Disparo": {
+      "title": "Disparo",
+      "description": "WhatsApp broadcast logs",
+      "type": "object",
+      "properties": {
+        "clienteId": { "type": "string" },
+        "clienteNome": { "type": "string" },
+        "mensagem": { "type": "string" },
+        "data": { "type": "string", "format": "date" },
+        "tipo": { "type": "string", "enum": ["Texto", "Voz"] },
+        "uid": { "type": "string" }
+      },
+      "required": ["clienteId", "mensagem", "data", "uid"]
+    },
+    "Nota": {
+      "title": "Nota",
+      "description": "Client notes",
+      "type": "object",
+      "properties": {
+        "texto": { "type": "string" },
+        "ts": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["texto", "ts"]
+    },
+    "Pagamento": {
+      "title": "Pagamento",
+      "description": "Client payment records",
+      "type": "object",
+      "properties": {
+        "valor": { "type": "number" },
+        "obs": { "type": "string" },
+        "data": { "type": "string", "format": "date" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["valor", "data"]
+    },
+    "Actividade": {
+      "title": "Actividade",
+      "description": "System activity logs",
+      "type": "object",
+      "properties": {
+        "texto": { "type": "string" },
+        "tipo": { "type": "string" },
+        "ts": { "type": "string", "format": "date-time" },
+        "uid": { "type": "string" }
+      },
+      "required": ["texto", "ts", "uid"]
+    },
+    "Pipeline": {
+      "title": "Pipeline",
+      "description": "Sales pipeline cards",
+      "type": "object",
+      "properties": {
+        "titulo": { "type": "string" },
+        "clienteId": { "type": "string" },
+        "clienteNome": { "type": "string" },
+        "valor": { "type": "number" },
+        "nota": { "type": "string" },
+        "stage": { "type": "string", "enum": ["prospecto", "contactado", "negociacao", "fechado"] },
+        "uid": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["titulo", "stage", "uid"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/clientes/{clienteId}": {
+      "schema": "Cliente",
+      "description": "Customer records"
+    },
+    "/clientes/{clienteId}/notas/{notaId}": {
+      "schema": "Nota",
+      "description": "Client notes"
+    },
+    "/clientes/{clienteId}/pagamentos/{pgtoId}": {
+      "schema": "Pagamento",
+      "description": "Client payments"
+    },
+    "/encomendas/{encomendaId}": {
+      "schema": "Encomenda",
+      "description": "Order records"
+    },
+    "/lembretes/{lembreteId}": {
+      "schema": "Lembrete",
+      "description": "Task records"
+    },
+    "/financas/{financaId}": {
+      "schema": "Financa",
+      "description": "Financial records"
+    },
+    "/disparos/{disparoId}": {
+      "schema": "Disparo",
+      "description": "Broadcast logs"
+    },
+    "/actividade/{actividadeId}": {
+      "schema": "Actividade",
+      "description": "Activity logs"
+    },
+    "/pipeline/{pipelineId}": {
+      "schema": "Pipeline",
+      "description": "Sales pipeline cards"
+    }
+  }
+}

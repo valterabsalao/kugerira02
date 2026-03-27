@@ -1,0 +1,23 @@
+{
+  "name": "Kugerira",
+  "short_name": "Kugerira",
+  "description": "Gestão de clientes, finanças e disparos WhatsApp — Mozambique",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#00E5A0",
+  "icons": [
+    {
+      "src": "https://picsum.photos/seed/kugerira/192/192",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://picsum.photos/seed/kugerira/512/512",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

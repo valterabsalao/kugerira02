@@ -1,0 +1,7 @@
+{
+  "name": "Kugerira",
+  "description": "Gestão de clientes, finanças e disparos WhatsApp — Mozambique",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
